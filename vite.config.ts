@@ -7,6 +7,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    emptyOutDir: true,
+  },
   resolve: {
     alias: {
       '@': '/src',
