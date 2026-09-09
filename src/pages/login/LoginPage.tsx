@@ -19,7 +19,11 @@ export default function LoginPage() {
 
     const { error: err } = await signIn(email, password)
     if (err) {
-      setError('Email hoặc mật khẩu không đúng')
+      if (err.toLowerCase().includes('invalid login credentials')) {
+        setError('Email hoặc mật khẩu không chính xác')
+      } else {
+        setError(`Lỗi đăng nhập: ${err}`)
+      }
       setLoading(false)
       return
     }
