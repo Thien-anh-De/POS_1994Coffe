@@ -23,8 +23,9 @@ export const userService = {
   },
 
   async createUser(email: string, password: string, name: string, role: UserRole): Promise<void> {
-    // Sign up via Supabase Auth — this creates the auth user
-    // The profile should be created via a trigger or manually
+    const { data: sessionData } = await supabase.auth.getSession()
+    const previousSession = sessionData.session
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -34,9 +35,9 @@ export const userService = {
     })
     if (error) throw new Error(error.message)
 
-    // Create profile entry
+    // Upsert profile entry safely (avoid duplicate key if trigger already ran)
     if (data.user) {
-      const { error: profileErr } = await supabase.from('profiles').insert({
+      const { error: profileErr } = await supabase.from('profiles').upsert({
         id: data.user.id,
         name,
         email,
@@ -44,6 +45,14 @@ export const userService = {
         status: 'active',
       })
       if (profileErr) throw new Error(profileErr.message)
+    }
+
+    // Restore admin session if signUp replaced it
+    if (previousSession?.access_token) {
+      await supabase.auth.setSession({
+        access_token: previousSession.access_token,
+        refresh_token: previousSession.refresh_token,
+      })
     }
   },
 
