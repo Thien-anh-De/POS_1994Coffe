@@ -23,36 +23,62 @@ export const userService = {
   },
 
   async createUser(email: string, password: string, name: string, role: UserRole): Promise<void> {
-    const { data: sessionData } = await supabase.auth.getSession()
-    const previousSession = sessionData.session
+    const cleanEmail = email.trim().toLowerCase()
+    const cleanName = name.trim()
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
+    if (password.length < 6) {
+      throw new Error('Mật khẩu phải có tối thiểu 6 ký tự')
+    }
+
+    // Use isolated client with persistSession: false so admin session is never disturbed
+    const authClient = (await import('@supabase/supabase-js')).createClient(
+      (await import('@/lib/supabase')).supabaseUrl,
+      (await import('@/lib/supabase')).supabaseAnonKey,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+      }
+    )
+
+    const { data, error } = await authClient.auth.signUp({
+      email: cleanEmail,
       password,
       options: {
-        data: { name, role },
+        data: { name: cleanName, role },
       },
     })
-    if (error) throw new Error(error.message)
 
-    // Upsert profile entry safely (avoid duplicate key if trigger already ran)
+    if (error) {
+      const msg = error.message.toLowerCase()
+      if (msg.includes('rate limit') || error.status === 429) {
+        throw new Error(
+          'Đã vượt quá giới hạn gửi mail của Supabase. Vui lòng vào Supabase Dashboard tắt tính năng "Confirm email" để tạo nhân viên không bị giới hạn.'
+        )
+      }
+      if (msg.includes('invalid') || msg.includes('validate email')) {
+        throw new Error(
+          'Email không hợp lệ hoặc đuôi tên miền chưa có máy chủ thư. Hãy tắt "Confirm email" trong Supabase Dashboard để dùng email nội bộ.'
+        )
+      }
+      if (msg.includes('already registered') || msg.includes('already exists')) {
+        throw new Error('Email này đã được sử dụng cho một tài khoản khác.')
+      }
+      throw new Error(error.message)
+    }
+
+    // Upsert profile entry safely
     if (data.user) {
       const { error: profileErr } = await supabase.from('profiles').upsert({
         id: data.user.id,
-        name,
-        email,
+        name: cleanName,
+        email: cleanEmail,
         role,
         status: 'active',
       })
       if (profileErr) throw new Error(profileErr.message)
-    }
-
-    // Restore admin session if signUp replaced it
-    if (previousSession?.access_token) {
-      await supabase.auth.setSession({
-        access_token: previousSession.access_token,
-        refresh_token: previousSession.refresh_token,
-      })
     }
   },
 

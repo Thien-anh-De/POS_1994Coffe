@@ -36,14 +36,26 @@ export default function UsersPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  const [submitting, setSubmitting] = useState(false)
+
   const handleAdd = async () => {
-    if (!formEmail.trim() || !formPassword || !formName.trim()) {
-      toastError('Vui lòng điền đầy đủ')
+    const email = formEmail.trim().toLowerCase()
+    const name = formName.trim()
+
+    if (!email || !formPassword || !name) {
+      toastError('Vui lòng điền đầy đủ thông tin')
       return
     }
+
+    if (formPassword.length < 6) {
+      toastError('Mật khẩu phải có tối thiểu 6 ký tự')
+      return
+    }
+
+    setSubmitting(true)
     try {
-      await userService.createUser(formEmail.trim(), formPassword, formName.trim(), formRole)
-      success('Đã thêm nhân viên')
+      await userService.createUser(email, formPassword, name, formRole)
+      success('Đã thêm nhân viên thành công')
       setShowAdd(false)
       setFormEmail('')
       setFormPassword('')
@@ -51,7 +63,9 @@ export default function UsersPage() {
       setFormRole('CASHIER')
       loadData()
     } catch (err) {
-      toastError(err instanceof Error ? err.message : 'Lỗi')
+      toastError(err instanceof Error ? err.message : 'Lỗi khi thêm nhân viên')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -204,8 +218,11 @@ export default function UsersPage() {
             <input className="input" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Nguyễn Văn A" />
           </div>
           <div>
-            <label className="input-label">Email</label>
-            <input className="input" type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="email@example.com" />
+            <label className="input-label">Email đăng nhập</label>
+            <input className="input" type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="anv@1994coffee.vn" />
+            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', display: 'block' }}>
+              Dùng email nội bộ để đăng nhập (vd: nv1@1994coffee.vn)
+            </span>
           </div>
           <div>
             <label className="input-label">Mật khẩu</label>
@@ -219,9 +236,11 @@ export default function UsersPage() {
               {hasRole('OWNER') && <option value="OWNER">Chủ quán</option>}
             </select>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-            <button className="btn btn-secondary" onClick={() => setShowAdd(false)}>Hủy</button>
-            <button className="btn btn-primary" onClick={handleAdd}>Thêm</button>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+            <button className="btn btn-secondary" onClick={() => setShowAdd(false)} disabled={submitting}>Hủy</button>
+            <button className="btn btn-primary" onClick={handleAdd} disabled={submitting}>
+              {submitting ? 'Đang thêm...' : 'Thêm'}
+            </button>
           </div>
         </div>
       </Modal>
