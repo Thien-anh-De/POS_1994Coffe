@@ -90,4 +90,29 @@ export const userService = {
       .eq('id', id)
     if (error) throw new Error(error.message)
   },
+
+  async deleteUser(id: string): Promise<void> {
+    // 1. Thử gọi hàm RPC delete_user (xóa cả auth và profiles)
+    const { error: rpcError } = await supabase.rpc('delete_user', { user_id: id })
+    if (!rpcError) return
+
+    // 2. Nếu chưa chạy migration 003_delete_user.sql, fallback xóa trực tiếp profile
+    const msg = (rpcError.message || '').toLowerCase()
+    if (msg.includes('function') && (msg.includes('delete_user') || msg.includes('does not exist'))) {
+      const { error: delError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', id)
+
+      if (delError) {
+        if (delError.message.includes('violates foreign key constraint') || delError.code === '23503') {
+          throw new Error('Nhân viên này đã có lịch sử tạo hóa đơn. Hãy dùng chức năng "Khóa tài khoản" để bảo toàn dữ liệu sổ sách!')
+        }
+        throw new Error(delError.message)
+      }
+      return
+    }
+
+    throw new Error(rpcError.message)
+  },
 }

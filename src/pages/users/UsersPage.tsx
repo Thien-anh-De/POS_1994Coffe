@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { userService } from '@/services/userService'
 import { ToastContainer, Modal, EmptyState, LoadingSpinner, ConfirmDialog } from '@/components/ui'
 import type { Profile, UserRole } from '@/types'
-import { Users, Plus, Edit2, UserCheck, UserX, Shield } from 'lucide-react'
+import { Users, Plus, Edit2, UserCheck, UserX, Shield, Trash2 } from 'lucide-react'
 
 export default function UsersPage() {
   const { hasRole, profile: currentUser } = useAuth()
@@ -16,6 +16,8 @@ export default function UsersPage() {
   const [showEdit, setShowEdit] = useState(false)
   const [editingUser, setEditingUser] = useState<Profile | null>(null)
   const [confirmToggle, setConfirmToggle] = useState<Profile | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<Profile | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Form
   const [formEmail, setFormEmail] = useState('')
@@ -90,6 +92,21 @@ export default function UsersPage() {
       loadData()
     } catch {
       toastError('Lỗi')
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return
+    setDeleting(true)
+    try {
+      await userService.deleteUser(confirmDelete.id)
+      success(`Đã xóa nhân viên "${confirmDelete.name}" thành công`)
+      setConfirmDelete(null)
+      loadData()
+    } catch (err) {
+      toastError(err instanceof Error ? err.message : 'Lỗi khi xóa nhân viên')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -194,12 +211,22 @@ export default function UsersPage() {
                   <td style={{ textAlign: 'right' }}>
                     {u.id !== currentUser?.id && hasRole('OWNER', 'MANAGER') && (
                       <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(u)}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(u)} title="Sửa thông tin">
                           <Edit2 size={14} />
                         </button>
-                        <button className="btn btn-ghost btn-sm" onClick={() => setConfirmToggle(u)}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setConfirmToggle(u)} title={u.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa'}>
                           {u.status === 'active' ? <UserX size={14} /> : <UserCheck size={14} />}
                         </button>
+                        {hasRole('OWNER') && (
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => setConfirmDelete(u)}
+                            style={{ color: 'var(--color-danger)' }}
+                            title="Xóa nhân viên"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
                       </div>
                     )}
                   </td>
@@ -275,6 +302,17 @@ export default function UsersPage() {
         danger={confirmToggle?.status === 'active'}
         onConfirm={handleToggle}
         onCancel={() => setConfirmToggle(null)}
+      />
+
+      {/* Delete Confirm */}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title="Xóa nhân viên"
+        message={`Bạn có chắc chắn muốn xóa tài khoản nhân viên "${confirmDelete?.name}"? Thao tác này sẽ xóa tài khoản vĩnh viễn.`}
+        confirmText={deleting ? 'Đang xóa...' : 'Xóa vĩnh viễn'}
+        danger
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(null)}
       />
     </div>
   )
