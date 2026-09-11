@@ -10,6 +10,7 @@ import {
   Users,
   LogOut,
   ChevronRight,
+  Printer,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { UserRole } from '@/types'
@@ -21,6 +22,7 @@ const navItems: { to: string; icon: typeof ShoppingCart; label: string; roles: U
   { to: '/invoices', icon: Receipt, label: 'Hóa đơn', roles: ['OWNER', 'MANAGER', 'CASHIER'] },
   { to: '/reports', icon: BarChart3, label: 'Doanh thu', roles: ['OWNER', 'MANAGER'] },
   { to: '/users', icon: Users, label: 'Nhân viên', roles: ['OWNER', 'MANAGER'] },
+  { to: '/printer', icon: Printer, label: 'Máy in hóa đơn', roles: ['OWNER', 'MANAGER', 'CASHIER'] },
 ]
 
 export function MainLayout({ children }: { children: ReactNode }) {

@@ -9,6 +9,7 @@ import TablesPage from '@/pages/tables/TablesPage'
 import InvoicesPage from '@/pages/invoices/InvoicesPage'
 import ReportsPage from '@/pages/reports/ReportsPage'
 import UsersPage from '@/pages/users/UsersPage'
+import PrinterPage from '@/pages/printer/PrinterPage'
 import type { ReactNode } from 'react'
 import type { UserRole } from '@/types'
 
@@ -69,6 +70,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <InvoicesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/printer"
+        element={
+          <ProtectedRoute>
+            <PrinterPage />
           </ProtectedRoute>
         }
       />

@@ -5,7 +5,8 @@ import { orderService } from '@/services/orderService'
 import { ToastContainer, EmptyState, LoadingSpinner, Modal, ConfirmDialog } from '@/components/ui'
 import { formatCurrency, formatDateTime } from '@/utils/helpers'
 import type { Order } from '@/types'
-import { Receipt, Search, Calendar, Eye, XCircle, Filter } from 'lucide-react'
+import { Receipt, Search, Calendar, Eye, XCircle, Filter, Printer } from 'lucide-react'
+import { printReceipt, type PrintableOrder } from '@/utils/printer'
 
 export default function InvoicesPage() {
   const { user, hasRole } = useAuth()
@@ -58,6 +59,27 @@ export default function InvoicesPage() {
     } catch {
       toastError('Lỗi khi hủy hóa đơn')
     }
+  }
+
+  const handlePrintOrder = (order: Order) => {
+    const printable: PrintableOrder = {
+      invoice_number: order.invoice_number,
+      table_name: order.table?.name ?? 'Mang về',
+      cashier_name: order.cashier?.name ?? 'Thu ngân',
+      created_at: order.created_at,
+      items: (order.items ?? []).map((i) => ({
+        product_name: i.product_name,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        subtotal: i.subtotal,
+      })),
+      subtotal: order.subtotal,
+      discount: order.discount,
+      total: order.total,
+      payment_method: order.payment?.method ?? (order.status === 'PAID' ? 'CASH' : undefined),
+    }
+    printReceipt(printable, undefined, order.status !== 'PAID')
+    success(`Đã gửi lệnh in hóa đơn ${order.invoice_number}`)
   }
 
   const statusLabel: Record<string, string> = {
@@ -146,11 +168,14 @@ export default function InvoicesPage() {
                   <td>{order.cashier?.name ?? '—'}</td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '0.25rem', justifyContent: 'flex-end' }}>
-                      <button className="btn btn-ghost btn-sm" onClick={() => setSelectedOrder(order)}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => handlePrintOrder(order)} title="In hóa đơn">
+                        <Printer size={14} />
+                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setSelectedOrder(order)} title="Xem chi tiết">
                         <Eye size={14} />
                       </button>
                       {order.status === 'PAID' && hasRole('OWNER', 'MANAGER') && (
-                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => setCancelOrder(order)}>
+                        <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-danger)' }} onClick={() => setCancelOrder(order)} title="Hủy hóa đơn">
                           <XCircle size={14} />
                         </button>
                       )}
@@ -235,6 +260,16 @@ export default function InvoicesPage() {
                 <div style={{ fontSize: '0.875rem' }}>{selectedOrder.cancel_reason}</div>
               </div>
             )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
+              <button className="btn btn-secondary" onClick={() => setSelectedOrder(null)}>
+                Đóng
+              </button>
+              <button className="btn btn-primary" onClick={() => handlePrintOrder(selectedOrder)}>
+                <Printer size={16} />
+                In hóa đơn
+              </button>
+            </div>
           </div>
         )}
       </Modal>

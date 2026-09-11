@@ -19,10 +19,14 @@ import {
   ShoppingBag,
   Check,
   Percent,
+  Printer,
+  CheckCircle,
 } from 'lucide-react'
+import { printerService } from '@/services/printerService'
+import { printReceipt, type PrintableOrder } from '@/utils/printer'
 
 export default function PosPage() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const { toasts, success, error: toastError, removeToast } = useToast()
 
   const [tables, setTables] = useState<CoffeeTable[]>([])
@@ -37,6 +41,8 @@ export default function PosPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
   const [discount, setDiscount] = useState(0)
   const [showPayment, setShowPayment] = useState(false)
+  const [showPaidSuccess, setShowPaidSuccess] = useState(false)
+  const [lastPaidOrder, setLastPaidOrder] = useState<PrintableOrder | null>(null)
 
   // Load data
   const loadData = useCallback(async () => {
@@ -169,16 +175,64 @@ export default function PosPage() {
     if (!currentOrder || !user) return
     try {
       await orderService.pay(currentOrder.id, method, currentOrder.total, user.id)
-      success(`Thanh toán thành công — ${method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}`)
+
+      const paidData: PrintableOrder = {
+        invoice_number: currentOrder.invoice_number,
+        table_name: selectedTable?.name ?? 'Mang về',
+        cashier_name: profile?.name ?? 'Thu ngân',
+        created_at: new Date().toISOString(),
+        items: orderItems.map((i) => ({
+          product_name: i.product_name,
+          quantity: i.quantity,
+          unit_price: i.unit_price,
+          subtotal: i.subtotal,
+        })),
+        subtotal: currentOrder.subtotal,
+        discount: currentOrder.discount,
+        total: currentOrder.total,
+        payment_method: method,
+      }
+
+      setLastPaidOrder(paidData)
       setShowPayment(false)
+
+      const settings = printerService.getSettings()
+      if (settings.autoPrintOnPay) {
+        printReceipt(paidData, settings, false)
+      }
+
+      setShowPaidSuccess(true)
       setSelectedTable(null)
       setCurrentOrder(null)
       setOrderItems([])
       setDiscount(0)
       loadData()
+      success(`Thanh toán thành công — ${method === 'CASH' ? 'Tiền mặt' : 'Chuyển khoản'}`)
     } catch {
       toastError('Thanh toán thất bại')
     }
+  }
+
+  // Print pre-bill (phiếu tạm tính)
+  const handlePrintPreBill = () => {
+    if (!currentOrder || orderItems.length === 0) return
+    const preBillData: PrintableOrder = {
+      invoice_number: currentOrder.invoice_number,
+      table_name: selectedTable?.name ?? 'Mang về',
+      cashier_name: profile?.name ?? 'Thu ngân',
+      created_at: new Date().toISOString(),
+      items: orderItems.map((i) => ({
+        product_name: i.product_name,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        subtotal: i.subtotal,
+      })),
+      subtotal,
+      discount,
+      total,
+    }
+    printReceipt(preBillData, undefined, true)
+    success('Đã gửi lệnh in tạm tính')
   }
 
   // Back to table selection
@@ -450,15 +504,29 @@ export default function PosPage() {
             </div>
           </div>
 
-          {/* Pay Button */}
-          <button
-            className="btn btn-primary btn-lg"
-            style={{ width: '100%', marginTop: '1rem' }}
-            disabled={orderItems.length === 0}
-            onClick={() => setShowPayment(true)}
-          >
-            Thanh toán
-          </button>
+          {/* Pre-bill & Pay Button */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
+            {printerService.getSettings().printPreBill && orderItems.length > 0 && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handlePrintPreBill}
+                title="In phiếu tạm tính cho khách kiểm tra trước khi tính tiền"
+              >
+                <Printer size={16} />
+                In tạm tính (Pre-bill)
+              </button>
+            )}
+
+            <button
+              className="btn btn-primary btn-lg"
+              style={{ width: '100%' }}
+              disabled={orderItems.length === 0}
+              onClick={() => setShowPayment(true)}
+            >
+              Thanh toán
+            </button>
+          </div>
         </div>
       </div>
 
@@ -495,6 +563,59 @@ export default function PosPage() {
             <CreditCard size={20} />
             Chuyển khoản
           </button>
+        </div>
+      </Modal>
+
+      {/* Paid Success Modal */}
+      <Modal open={showPaidSuccess} onClose={() => setShowPaidSuccess(false)} title="Thanh toán thành công">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1rem', padding: '0.5rem 0' }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              background: 'rgba(34, 197, 94, 0.12)',
+              color: 'var(--color-success)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <CheckCircle size={32} />
+          </div>
+
+          <div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 0.25rem 0' }}>
+              {lastPaidOrder?.table_name} — Đã thanh toán
+            </h3>
+            <div style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+              Mã HĐ: <span style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>{lastPaidOrder?.invoice_number}</span>
+            </div>
+            <div style={{ fontSize: '1.625rem', fontWeight: 800, color: 'var(--color-coffee-300)', marginTop: '0.5rem' }}>
+              {formatCurrency(lastPaidOrder?.total || 0)}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', width: '100%', marginTop: '0.5rem' }}>
+            <button
+              className="btn btn-primary btn-lg"
+              style={{ flex: 1 }}
+              onClick={() => {
+                if (lastPaidOrder) printReceipt(lastPaidOrder, undefined, false)
+              }}
+            >
+              <Printer size={18} />
+              In hóa đơn
+            </button>
+
+            <button
+              className="btn btn-secondary btn-lg"
+              style={{ flex: 1 }}
+              onClick={() => setShowPaidSuccess(false)}
+            >
+              Đơn tiếp theo
+            </button>
+          </div>
         </div>
       </Modal>
     </div>
