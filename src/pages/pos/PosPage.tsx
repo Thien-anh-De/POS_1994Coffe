@@ -6,7 +6,7 @@ import { categoryService } from '@/services/categoryService'
 import { productService } from '@/services/productService'
 import { orderService } from '@/services/orderService'
 import { ToastContainer, LoadingSpinner, EmptyState, Modal } from '@/components/ui'
-import { formatCurrency } from '@/utils/helpers'
+import { formatCurrency, removeVietnameseTones } from '@/utils/helpers'
 import type { CoffeeTable, Category, Product, Order, OrderItem, CartItem } from '@/types'
 import {
   Coffee,
@@ -21,6 +21,7 @@ import {
   Percent,
   Printer,
   CheckCircle,
+  Search,
 } from 'lucide-react'
 import { printerService } from '@/services/printerService'
 import { printReceipt, type PrintableOrder } from '@/utils/printer'
@@ -43,6 +44,7 @@ export default function PosPage() {
   const [showPayment, setShowPayment] = useState(false)
   const [showPaidSuccess, setShowPaidSuccess] = useState(false)
   const [lastPaidOrder, setLastPaidOrder] = useState<PrintableOrder | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Load data
   const loadData = useCallback(async () => {
@@ -241,11 +243,27 @@ export default function PosPage() {
     setCurrentOrder(null)
     setOrderItems([])
     setDiscount(0)
+    setSearchQuery('')
   }
 
-  const filteredProducts = activeCategory
-    ? products.filter((p) => p.category_id === activeCategory)
-    : products
+  const filteredProducts = products.filter((p) => {
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase()
+      const qNoTone = removeVietnameseTones(q)
+      const name = p.name.toLowerCase()
+      const nameNoTone = removeVietnameseTones(p.name)
+
+      const matchesSearch = name.includes(q) || nameNoTone.includes(qNoTone)
+      if (!matchesSearch) return false
+
+      if (activeCategory && p.category_id !== activeCategory) {
+        return false
+      }
+      return true
+    }
+
+    return activeCategory ? p.category_id === activeCategory : true
+  })
 
   const subtotal = currentOrder?.subtotal ?? orderItems.reduce((s, i) => s + i.subtotal, 0)
   const total = Math.max(0, subtotal - discount)
@@ -342,8 +360,67 @@ export default function PosPage() {
           <span className="badge badge-coffee">{currentOrder?.invoice_number}</span>
         </div>
 
+        {/* Search Bar */}
+        <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
+          <Search
+            size={16}
+            style={{
+              position: 'absolute',
+              left: '0.75rem',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--color-text-muted)',
+              pointerEvents: 'none',
+            }}
+          />
+          <input
+            type="text"
+            className="input"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm kiếm món nhanh (ví dụ: bạc xỉu, đen, trà đào...)"
+            style={{
+              paddingLeft: '2.25rem',
+              paddingRight: searchQuery ? '2.25rem' : '0.875rem',
+              height: 38,
+              fontSize: '0.875rem',
+              borderRadius: 'var(--radius-lg)',
+            }}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="btn-ghost"
+              style={{
+                position: 'absolute',
+                right: '0.5rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                padding: '0.25rem',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                border: 'none',
+                color: 'var(--color-text-muted)',
+              }}
+              title="Xóa tìm kiếm"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
         {/* Category Tabs */}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+          <button
+            onClick={() => setActiveCategory(null)}
+            className={`btn btn-sm ${activeCategory === null ? 'btn-primary' : 'btn-secondary'}`}
+          >
+            Tất cả ({products.length})
+          </button>
           {categories.map((cat) => (
             <button
               key={cat.id}
@@ -366,30 +443,56 @@ export default function PosPage() {
             alignContent: 'start',
           }}
         >
-          {filteredProducts.map((product) => (
-            <button
-              key={product.id}
-              onClick={() => handleAddProduct(product)}
-              className="glass-card"
-              style={{
-                padding: '1rem',
-                cursor: 'pointer',
-                textAlign: 'left',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.375rem',
-              }}
-            >
-              <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{product.name}</div>
-              <div style={{ fontSize: '0.875rem', color: 'var(--color-coffee-400)', fontWeight: 500 }}>
-                {formatCurrency(product.price)}
-              </div>
-            </button>
-          ))}
+          {filteredProducts.map((product) => {
+            const cat = categories.find((c) => c.id === product.category_id)
+            return (
+              <button
+                key={product.id}
+                onClick={() => handleAddProduct(product)}
+                className="glass-card"
+                style={{
+                  padding: '0.875rem 1rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.25rem',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{product.name}</div>
+                {cat && (
+                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                    {cat.name}
+                  </div>
+                )}
+                <div style={{ fontSize: '0.875rem', color: 'var(--color-coffee-400)', fontWeight: 600, marginTop: 'auto' }}>
+                  {formatCurrency(product.price)}
+                </div>
+              </button>
+            )
+          })}
 
           {filteredProducts.length === 0 && (
-            <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-              <p>Chưa có món trong danh mục này</p>
+            <div className="empty-state" style={{ gridColumn: '1 / -1', padding: '2rem' }}>
+              <Coffee size={36} style={{ opacity: 0.3, margin: '0 auto 0.5rem auto' }} />
+              <p style={{ fontWeight: 600, margin: 0 }}>
+                {searchQuery
+                  ? `Không tìm thấy món nào với từ khóa "${searchQuery}"`
+                  : 'Chưa có món trong danh mục này'}
+              </p>
+              {searchQuery && (
+                <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                  {activeCategory !== null && (
+                    <button className="btn btn-secondary btn-sm" onClick={() => setActiveCategory(null)}>
+                      Tìm trong tất cả danh mục
+                    </button>
+                  )}
+                  <button className="btn btn-primary btn-sm" onClick={() => setSearchQuery('')}>
+                    Xóa tìm kiếm
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

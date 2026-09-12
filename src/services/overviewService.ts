@@ -9,6 +9,7 @@ import type {
   CancelledOrderSummary,
   ExportReportRow,
   ReportPeriodType,
+  ProductReportRow,
 } from '@/types'
 
 export type PeriodType = 'today' | 'yesterday' | '7days' | 'this_month' | 'this_year' | 'custom'
@@ -564,5 +565,108 @@ export const overviewService = {
     }
 
     return []
+  },
+
+  /**
+   * Báo cáo bán hàng theo mặt hàng (Product Sales Report)
+   */
+  async getProductReportData(options: {
+    year: number
+    month?: number
+    from?: string
+    to?: string
+  }): Promise<ProductReportRow[]> {
+    const { year, month, from, to } = options
+    let startIso: string
+    let endIso: string
+
+    if (from && to) {
+      startIso = new Date(from + 'T00:00:00').toISOString()
+      endIso = new Date(to + 'T23:59:59.999').toISOString()
+    } else if (month && month >= 1 && month <= 12) {
+      const daysInMonth = new Date(year, month, 0).getDate()
+      startIso = new Date(year, month - 1, 1, 0, 0, 0).toISOString()
+      endIso = new Date(year, month - 1, daysInMonth, 23, 59, 59, 999).toISOString()
+    } else {
+      startIso = new Date(year, 0, 1, 0, 0, 0).toISOString()
+      endIso = new Date(year, 11, 31, 23, 59, 59, 999).toISOString()
+    }
+
+    // 1. Get paid orders in range
+    const { data: orders, error: ordErr } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('status', 'PAID')
+      .gte('paid_at', startIso)
+      .lte('paid_at', endIso)
+
+    if (ordErr) throw new Error(ordErr.message)
+    if (!orders || orders.length === 0) return []
+
+    const orderIds = orders.map((o) => o.id)
+
+    // 2. Fetch order items for these orders
+    const { data: items, error: itemsErr } = await supabase
+      .from('order_items')
+      .select('product_id, product_name, unit_price, quantity, subtotal')
+      .in('order_id', orderIds)
+
+    if (itemsErr) throw new Error(itemsErr.message)
+    if (!items || items.length === 0) return []
+
+    // 3. Fetch categories mapping
+    const { data: products } = await supabase
+      .from('products')
+      .select('id, category:categories(name)')
+
+    const productCategoryMap = new Map<string, string>()
+    if (products) {
+      for (const p of products) {
+        const cat = p.category as unknown
+        const catName = Array.isArray(cat) ? cat[0]?.name : (cat as { name: string } | null)?.name
+        if (catName) {
+          productCategoryMap.set(p.id, catName)
+        }
+      }
+    }
+
+    // 4. Aggregate by product_name
+    const map = new Map<
+      string,
+      { category_name: string; unit_price: number; quantity: number; revenue: number }
+    >()
+
+    let totalAllRevenue = 0
+
+    for (const item of items) {
+      const catName = productCategoryMap.get(item.product_id) || 'Khác'
+      const existing = map.get(item.product_name) ?? {
+        category_name: catName,
+        unit_price: item.unit_price,
+        quantity: 0,
+        revenue: 0,
+      }
+      existing.quantity += item.quantity
+      existing.revenue += item.subtotal
+      existing.unit_price = item.unit_price
+      totalAllRevenue += item.subtotal
+      map.set(item.product_name, existing)
+    }
+
+    const results: ProductReportRow[] = []
+    for (const [name, val] of map.entries()) {
+      results.push({
+        product_name: name,
+        category_name: val.category_name,
+        unit_price: val.unit_price,
+        quantity: val.quantity,
+        total_revenue: val.revenue,
+        percentage: totalAllRevenue > 0 ? Number(((val.revenue / totalAllRevenue) * 100).toFixed(1)) : 0,
+      })
+    }
+
+    // Sort by quantity sold descending
+    results.sort((a, b) => b.quantity - a.quantity || b.total_revenue - a.total_revenue)
+    return results
   },
 }

@@ -1,12 +1,8 @@
--- ============================================================
--- POS 1994 Coffee — Database Schema
--- Run this in Supabase SQL Editor
--- ============================================================
 
--- ── Enable UUID extension ─────────────────────────────────────
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ── 1. profiles ───────────────────────────────────────────────
+-- profiles
 CREATE TABLE profiles (
   id         UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   name       TEXT NOT NULL,
@@ -38,7 +34,7 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- ── 2. categories ─────────────────────────────────────────────
+-- categories
 CREATE TABLE categories (
   id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name       TEXT NOT NULL,
@@ -47,7 +43,7 @@ CREATE TABLE categories (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- ── 3. products ───────────────────────────────────────────────
+-- products
 CREATE TABLE products (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   category_id UUID NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
@@ -60,7 +56,7 @@ CREATE TABLE products (
 
 CREATE INDEX idx_products_category ON products(category_id);
 
--- ── 4. tables ─────────────────────────────────────────────────
+-- tables
 CREATE TABLE tables (
   id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name       TEXT NOT NULL,
@@ -70,7 +66,7 @@ CREATE TABLE tables (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- ── 5. orders ─────────────────────────────────────────────────
+-- orders
 CREATE TABLE orders (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   table_id       UUID NOT NULL REFERENCES tables(id) ON DELETE RESTRICT,
@@ -93,7 +89,7 @@ CREATE INDEX idx_orders_table ON orders(table_id);
 CREATE INDEX idx_orders_paid_at ON orders(paid_at);
 CREATE INDEX idx_orders_created_at ON orders(created_at);
 
--- ── 6. order_items ────────────────────────────────────────────
+-- order_items
 CREATE TABLE order_items (
   id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   order_id     UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -106,7 +102,7 @@ CREATE TABLE order_items (
 
 CREATE INDEX idx_order_items_order ON order_items(order_id);
 
--- ── 7. payments ───────────────────────────────────────────────
+-- payments
 CREATE TABLE payments (
   id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   order_id   UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -118,7 +114,7 @@ CREATE TABLE payments (
 
 CREATE INDEX idx_payments_order ON payments(order_id);
 
--- ── 8. audit_logs ─────────────────────────────────────────────
+-- audit_logs
 CREATE TABLE audit_logs (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id     UUID NOT NULL REFERENCES profiles(id) ON DELETE RESTRICT,
@@ -132,7 +128,7 @@ CREATE TABLE audit_logs (
 CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
 CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
 
--- ── Enable RLS on all tables ──────────────────────────────────
+-- Enable RLS on all tables
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;

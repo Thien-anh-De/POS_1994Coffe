@@ -5,7 +5,7 @@ import { overviewService, type PeriodType, type OverviewPayload } from '@/servic
 import { ToastContainer, LoadingSpinner, Modal } from '@/components/ui'
 import { formatCurrency, formatDateTime } from '@/utils/helpers'
 import { exportReportToCsv, printReportHtml, printShiftClosingSlip } from '@/utils/exportReport'
-import type { ExportReportRow, ReportPeriodType, ShiftClosingData } from '@/types'
+import type { ExportReportRow, ReportPeriodType, ShiftClosingData, ProductReportRow } from '@/types'
 import {
   TrendingUp,
   TrendingDown,
@@ -51,6 +51,8 @@ export default function OverviewPage() {
   const [reportYear, setReportYear] = useState(new Date().getFullYear())
   const [reportMonth, setReportMonth] = useState(new Date().getMonth() + 1)
   const [reportRows, setReportRows] = useState<ExportReportRow[]>([])
+  const [productReportRows, setProductReportRows] = useState<ProductReportRow[]>([])
+  const [productSearch, setProductSearch] = useState('')
   const [loadingReport, setLoadingReport] = useState(false)
 
   // Shift closing modal state
@@ -83,11 +85,19 @@ export default function OverviewPage() {
   const loadReportData = useCallback(async () => {
     setLoadingReport(true)
     try {
-      const rows = await overviewService.getReportData(reportType, {
-        year: reportYear,
-        month: reportMonth,
-      })
-      setReportRows(rows)
+      if (reportType === 'product') {
+        const pRows = await overviewService.getProductReportData({
+          year: reportYear,
+          month: reportMonth,
+        })
+        setProductReportRows(pRows)
+      } else {
+        const rows = await overviewService.getReportData(reportType, {
+          year: reportYear,
+          month: reportMonth,
+        })
+        setReportRows(rows)
+      }
     } catch {
       toastError('Không thể tải dữ liệu báo cáo')
     } finally {
@@ -103,6 +113,46 @@ export default function OverviewPage() {
 
   // Handle Export CSV
   const handleExportCsv = () => {
+    if (reportType === 'product') {
+      if (productReportRows.length === 0) {
+        toastError('Không có dữ liệu để xuất')
+        return
+      }
+      const headers = [
+        'STT',
+        'Tên mặt hàng',
+        'Nhóm hàng (Danh mục)',
+        'Đơn giá (VNĐ)',
+        'Số lượng đã bán',
+        'Doanh thu (VNĐ)',
+        'Tỷ trọng doanh thu (%)',
+      ]
+      const rows = productReportRows.map((r, i) => [
+        i + 1,
+        r.product_name,
+        r.category_name,
+        r.unit_price,
+        r.quantity,
+        r.total_revenue,
+        `${r.percentage}%`,
+      ])
+      const totalQty = productReportRows.reduce((s, r) => s + r.quantity, 0)
+      const totalRev = productReportRows.reduce((s, r) => s + r.total_revenue, 0)
+      const summaryRow = ['TỔNG CỘNG', `${productReportRows.length} mặt hàng`, '-', '-', totalQty, totalRev, '100%']
+
+      const filename = `Bao-cao-ban-hang-theo-mat-hang-1994Coffee-T${reportMonth}-${reportYear}`
+      exportReportToCsv(
+        filename,
+        `BÁO CÁO BÁN HÀNG THEO MẶT HÀNG - THÁNG ${reportMonth}/${reportYear}`,
+        `Đơn vị tính: Việt Nam Đồng (VNĐ)`,
+        headers,
+        rows,
+        summaryRow
+      )
+      toastSuccess('Đã tải xuống file Excel báo cáo mặt hàng (.CSV UTF-8)')
+      return
+    }
+
     if (reportRows.length === 0) {
       toastError('Không có dữ liệu để xuất')
       return
@@ -145,6 +195,7 @@ export default function OverviewPage() {
       monthly: `Theo tháng (Năm ${reportYear})`,
       quarterly: `Theo quý (Năm ${reportYear})`,
       yearly: `Theo năm`,
+      product: `Theo mặt hàng`,
     }
 
     const filename = `Bao-cao-doanh-thu-1994Coffee-${reportType}-${reportYear}`
@@ -161,6 +212,40 @@ export default function OverviewPage() {
 
   // Handle Print Report
   const handlePrintReport = () => {
+    if (reportType === 'product') {
+      if (productReportRows.length === 0) return
+      const headers = [
+        'STT',
+        'Tên mặt hàng',
+        'Nhóm hàng',
+        'Đơn giá',
+        'Số lượng',
+        'Doanh thu',
+        'Tỷ trọng',
+      ]
+      const rows = productReportRows.map((r, i) => [
+        i + 1,
+        r.product_name,
+        r.category_name,
+        formatCurrency(r.unit_price),
+        `${r.quantity} ly`,
+        formatCurrency(r.total_revenue),
+        `${r.percentage}%`,
+      ])
+      const totalQty = productReportRows.reduce((s, r) => s + r.quantity, 0)
+      const totalRev = productReportRows.reduce((s, r) => s + r.total_revenue, 0)
+      const summaryRow = ['TỔNG CỘNG', `${productReportRows.length} món`, '-', '-', `${totalQty} ly`, formatCurrency(totalRev), '100%']
+
+      printReportHtml(
+        `Báo cáo bán hàng theo mặt hàng - Tháng ${reportMonth}/${reportYear}`,
+        `Hệ thống POS 1994 Coffee`,
+        headers,
+        rows,
+        summaryRow
+      )
+      return
+    }
+
     if (reportRows.length === 0) return
 
     const headers = [
@@ -201,6 +286,7 @@ export default function OverviewPage() {
       monthly: `Báo cáo 12 tháng - Năm ${reportYear}`,
       quarterly: `Báo cáo 4 quý - Năm ${reportYear}`,
       yearly: `Báo cáo tổng hợp các năm`,
+      product: `Báo cáo bán hàng theo mặt hàng`,
     }
 
     printReportHtml(
@@ -269,17 +355,9 @@ export default function OverviewPage() {
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <h1 className="page-title" style={{ margin: 0 }}>
-              Tổng quan bán hàng
-            </h1>
-            <span className="badge badge-coffee" style={{ fontSize: '0.75rem' }}>
-              KiotViet Style
-            </span>
-          </div>
-          <p className="page-subtitle" style={{ margin: '0.25rem 0 0 0' }}>
-            Theo dõi doanh thu thuần, biểu đồ giờ vàng, dòng tiền và kiểm soát thất thoát
-          </p>
+          <h1 className="page-title" style={{ margin: 0 }}>
+            Tổng quan bán hàng
+          </h1>
         </div>
 
         {/* Quick action buttons */}
@@ -1130,6 +1208,7 @@ export default function OverviewPage() {
               { type: 'monthly', label: 'Theo tháng' },
               { type: 'quarterly', label: 'Theo quý' },
               { type: 'yearly', label: 'Theo năm' },
+              { type: 'product', label: 'Theo mặt hàng' },
             ].map((t) => (
               <button
                 key={t.type}
@@ -1147,15 +1226,16 @@ export default function OverviewPage() {
           <div
             style={{
               display: 'flex',
-              gap: '1rem',
+              gap: '0.75rem',
               alignItems: 'flex-end',
+              flexWrap: 'wrap',
               marginBottom: '1rem',
               background: 'var(--color-surface)',
               padding: '0.75rem',
               borderRadius: 'var(--radius-lg)',
             }}
           >
-            {reportType === 'daily' && (
+            {(reportType === 'daily' || reportType === 'product') && (
               <div style={{ minWidth: 120 }}>
                 <label className="input-label">Tháng</label>
                 <select
@@ -1163,6 +1243,7 @@ export default function OverviewPage() {
                   value={reportMonth}
                   onChange={(e) => setReportMonth(Number(e.target.value))}
                 >
+                  {reportType === 'product' && <option value={0}>Cả năm</option>}
                   {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                     <option key={m} value={m}>Tháng {m}</option>
                   ))}
@@ -1170,7 +1251,7 @@ export default function OverviewPage() {
               </div>
             )}
 
-            <div style={{ minWidth: 120 }}>
+            <div style={{ minWidth: 110 }}>
               <label className="input-label">Năm</label>
               <select
                 className="select"
@@ -1183,6 +1264,20 @@ export default function OverviewPage() {
               </select>
             </div>
 
+            {reportType === 'product' && (
+              <div style={{ flex: '1 1 200px' }}>
+                <label className="input-label">Tìm theo tên món / nhóm</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Ví dụ: Cà phê, Bạc xỉu, Trà..."
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  style={{ padding: '0.45rem 0.75rem' }}
+                />
+              </div>
+            )}
+
             <button className="btn btn-primary" onClick={loadReportData} disabled={loadingReport}>
               {loadingReport ? 'Đang tải...' : 'Xem số liệu'}
             </button>
@@ -1191,7 +1286,7 @@ export default function OverviewPage() {
           {/* Table Preview */}
           <div
             style={{
-              maxHeight: '340px',
+              maxHeight: '360px',
               overflowY: 'auto',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--radius-md)',
@@ -1202,6 +1297,87 @@ export default function OverviewPage() {
               <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
                 <LoadingSpinner size={28} />
               </div>
+            ) : reportType === 'product' ? (
+              /* Bảng Báo Cáo Theo Mặt Hàng */
+              (() => {
+                const filtered = productReportRows.filter(
+                  (p) =>
+                    !productSearch ||
+                    p.product_name.toLowerCase().includes(productSearch.toLowerCase()) ||
+                    p.category_name.toLowerCase().includes(productSearch.toLowerCase())
+                )
+
+                if (filtered.length === 0) {
+                  return (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>
+                      Không tìm thấy mặt hàng nào trong kỳ đã chọn
+                    </div>
+                  )
+                }
+
+                const totalQty = filtered.reduce((s, r) => s + r.quantity, 0)
+                const totalRev = filtered.reduce((s, r) => s + r.total_revenue, 0)
+
+                return (
+                  <table className="data-table" style={{ margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: 44, textAlign: 'center' }}>STT</th>
+                        <th>Tên mặt hàng</th>
+                        <th>Nhóm hàng</th>
+                        <th style={{ textAlign: 'right' }}>Đơn giá</th>
+                        <th style={{ textAlign: 'right' }}>Số lượng đã bán</th>
+                        <th style={{ textAlign: 'right' }}>Doanh thu</th>
+                        <th style={{ textAlign: 'right' }}>Tỷ trọng</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((item, idx) => (
+                        <tr key={item.product_name}>
+                          <td style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>
+                            {idx + 1}
+                          </td>
+                          <td style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                            {item.product_name}
+                          </td>
+                          <td>
+                            <span className="badge" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+                              {item.category_name}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right', color: 'var(--color-text-secondary)' }}>
+                            {formatCurrency(item.unit_price)}
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                            {item.quantity} ly
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--color-coffee-600)' }}>
+                            {formatCurrency(item.total_revenue)}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <span className="badge badge-coffee" style={{ minWidth: 42, textAlign: 'center' }}>
+                              {item.percentage}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {/* Summary Row */}
+                      <tr style={{ fontWeight: 700, background: '#fef3c7', color: 'var(--color-coffee-700)' }}>
+                        <td colSpan={2} style={{ textAlign: 'left' }}>
+                          TỔNG CỘNG: {filtered.length} MẶT HÀNG
+                        </td>
+                        <td>-</td>
+                        <td style={{ textAlign: 'right' }}>-</td>
+                        <td style={{ textAlign: 'right' }}>{totalQty} ly</td>
+                        <td style={{ textAlign: 'right', color: 'var(--color-coffee-700)' }}>
+                          {formatCurrency(totalRev)}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>100%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                )
+              })()
             ) : reportRows.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)' }}>
                 Không có dữ liệu trong khoảng thời gian này

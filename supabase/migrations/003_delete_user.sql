@@ -1,9 +1,3 @@
--- ============================================================
--- POS 1994 Coffee — Delete User RPC Function
--- Run this in Supabase SQL Editor
--- Allows OWNER to cleanly delete an employee account
--- ============================================================
-
 CREATE OR REPLACE FUNCTION public.delete_user(user_id UUID)
 RETURNS void AS $$
 DECLARE

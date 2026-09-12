@@ -86,3 +86,17 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
 export function cn(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(' ')
 }
+
+/**
+ * Chuyển chuỗi tiếng Việt có dấu thành không dấu để tìm kiếm nhanh
+ */
+export function removeVietnameseTones(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim()
+}
+

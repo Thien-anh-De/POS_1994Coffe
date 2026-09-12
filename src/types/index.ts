@@ -192,7 +192,7 @@ export interface OverviewSummary {
   peak_hour_revenue: number
 }
 
-export type ReportPeriodType = 'daily' | 'monthly' | 'quarterly' | 'yearly'
+export type ReportPeriodType = 'daily' | 'monthly' | 'quarterly' | 'yearly' | 'product'
 
 export interface ExportReportRow {
   period_label: string
@@ -202,6 +202,15 @@ export interface ExportReportRow {
   net_revenue: number
   avg_order_value: number
   note?: string
+}
+
+export interface ProductReportRow {
+  product_name: string
+  category_name: string
+  unit_price: number
+  quantity: number
+  total_revenue: number
+  percentage: number
 }
 
 export interface ShiftClosingData {
