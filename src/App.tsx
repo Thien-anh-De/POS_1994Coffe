@@ -8,6 +8,7 @@ import ProductsPage from '@/pages/products/ProductsPage'
 import TablesPage from '@/pages/tables/TablesPage'
 import InvoicesPage from '@/pages/invoices/InvoicesPage'
 import ReportsPage from '@/pages/reports/ReportsPage'
+import OverviewPage from '@/pages/overview/OverviewPage'
 import UsersPage from '@/pages/users/UsersPage'
 import PrinterPage from '@/pages/printer/PrinterPage'
 import type { ReactNode } from 'react'
@@ -83,6 +84,14 @@ function AppRoutes() {
       />
 
       {/* Protected — OWNER + MANAGER */}
+      <Route
+        path="/overview"
+        element={
+          <ProtectedRoute roles={['OWNER', 'MANAGER']}>
+            <OverviewPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/products"
         element={

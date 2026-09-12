@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
   Coffee,
+  LayoutDashboard,
   ShoppingCart,
   Grid3X3,
   Package,
@@ -16,6 +17,7 @@ import type { ReactNode } from 'react'
 import type { UserRole } from '@/types'
 
 const navItems: { to: string; icon: typeof ShoppingCart; label: string; roles: UserRole[] }[] = [
+  { to: '/overview', icon: LayoutDashboard, label: 'Tổng quan', roles: ['OWNER', 'MANAGER'] },
   { to: '/pos', icon: ShoppingCart, label: 'Bán hàng', roles: ['OWNER', 'MANAGER', 'CASHIER'] },
   { to: '/tables', icon: Grid3X3, label: 'Quản lý bàn', roles: ['OWNER', 'MANAGER'] },
   { to: '/products', icon: Package, label: 'Quản lý món', roles: ['OWNER', 'MANAGER'] },

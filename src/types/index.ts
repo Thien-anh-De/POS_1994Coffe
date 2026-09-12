@@ -127,6 +127,100 @@ export interface MonthlyRevenue {
   total_orders: number
 }
 
+// ── Overview & Management Dashboard Types ─────────────────────
+export interface HourlyRevenue {
+  hour: number
+  label: string
+  revenue: number
+  order_count: number
+}
+
+export interface ProductComparison {
+  product_name: string
+  current_qty: number
+  current_revenue: number
+  prev_qty: number
+  prev_revenue: number
+  diff_qty: number
+  pct_change: number
+  trend: 'up' | 'down' | 'same' | 'new'
+}
+
+export interface PaymentBreakdown {
+  cash_amount: number
+  cash_orders: number
+  bank_amount: number
+  bank_orders: number
+}
+
+export interface CashierPerformance {
+  cashier_id: string
+  cashier_name: string
+  total_orders: number
+  total_revenue: number
+  avg_order_value: number
+}
+
+export interface CategoryRevenue {
+  category_name: string
+  total_quantity: number
+  total_revenue: number
+  percentage: number
+}
+
+export interface CancelledOrderSummary {
+  id: string
+  invoice_number: string
+  table_name: string
+  cancelled_by_name: string
+  total: number
+  cancel_reason: string
+  cancelled_at: string
+}
+
+export interface OverviewSummary {
+  net_revenue: number
+  gross_revenue: number
+  discount_total: number
+  total_orders: number
+  avg_order_value: number
+  prev_net_revenue: number
+  prev_orders: number
+  revenue_growth_pct: number
+  orders_growth_pct: number
+  peak_hour: number | null
+  peak_hour_revenue: number
+}
+
+export type ReportPeriodType = 'daily' | 'monthly' | 'quarterly' | 'yearly'
+
+export interface ExportReportRow {
+  period_label: string
+  order_count: number
+  gross_revenue: number
+  discount: number
+  net_revenue: number
+  avg_order_value: number
+  note?: string
+}
+
+export interface ShiftClosingData {
+  closing_time: string
+  period_title: string
+  cashier_name: string
+  net_revenue: number
+  gross_revenue: number
+  discount_total: number
+  total_orders: number
+  cash_amount: number
+  cash_orders: number
+  bank_amount: number
+  bank_orders: number
+  cancelled_orders_count: number
+  cancelled_orders_amount: number
+  top_items: { name: string; qty: number; revenue: number }[]
+}
+
 // ── UI / Cart ─────────────────────────────────────────────────
 export interface CartItem {
   product_id: string
@@ -135,3 +229,4 @@ export interface CartItem {
   quantity: number
   subtotal: number
 }
+
