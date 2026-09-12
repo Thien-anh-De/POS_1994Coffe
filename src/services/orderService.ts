@@ -61,14 +61,35 @@ export const orderService = {
     return data
   },
 
+  async cancelEmptyOrder(orderId: string, tableId: string): Promise<void> {
+    const { count } = await supabase
+      .from('order_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('order_id', orderId)
+
+    if (!count || count === 0) {
+      const { error } = await supabase.from('orders').delete().eq('id', orderId)
+      if (error) {
+        await supabase
+          .from('orders')
+          .update({ status: 'CANCELLED', cancel_reason: 'Bàn trống không gọi món' })
+          .eq('id', orderId)
+      }
+      await supabase.from('tables').update({ status: 'AVAILABLE' }).eq('id', tableId)
+    }
+  },
+
   async addItem(orderId: string, item: CartItem): Promise<OrderItem> {
-    // Check if item already exists in order
-    const { data: existing } = await supabase
+    // Check if item with SAME product_id AND SAME note already exists in order
+    const { data: existingList } = await supabase
       .from('order_items')
       .select('*')
       .eq('order_id', orderId)
       .eq('product_id', item.product_id)
-      .maybeSingle()
+
+    const existing = existingList && existingList.length > 0
+      ? existingList.find((e) => (e.note || '') === (item.note || ''))
+      : null
 
     if (existing) {
       const newQty = existing.quantity + item.quantity
@@ -83,21 +104,80 @@ export const orderService = {
       return data
     }
 
-    const { data, error } = await supabase
+    const insertPayload: Record<string, unknown> = {
+      order_id: orderId,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      unit_price: item.unit_price,
+      quantity: item.quantity,
+      subtotal: item.subtotal,
+    }
+    if (item.note) {
+      insertPayload.note = item.note
+    }
+
+    let { data, error } = await supabase
       .from('order_items')
-      .insert({
-        order_id: orderId,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        unit_price: item.unit_price,
-        quantity: item.quantity,
-        subtotal: item.subtotal,
-      })
+      .insert(insertPayload)
       .select()
       .single()
+
+    // Fallback nếu cột note chưa được tạo trong CSDL Supabase
+    if (error && error.message && error.message.includes('note')) {
+      delete insertPayload.note
+      if (item.note) {
+        insertPayload.product_name = `${item.product_name} (${item.note})`
+      }
+      const retry = await supabase
+        .from('order_items')
+        .insert(insertPayload)
+        .select()
+        .single()
+      data = retry.data
+      error = retry.error
+    }
+
     if (error) throw new Error(error.message)
     await this.recalculate(orderId)
     return data
+  },
+
+  async updateItemDetails(
+    itemId: string,
+    orderId: string,
+    note: string,
+    unitPrice: number,
+    quantity: number,
+    baseProductName?: string
+  ): Promise<void> {
+    const subtotal = unitPrice * quantity
+    const updatePayload: Record<string, unknown> = {
+      unit_price: unitPrice,
+      quantity,
+      subtotal,
+      note,
+    }
+
+    let { error } = await supabase
+      .from('order_items')
+      .update(updatePayload)
+      .eq('id', itemId)
+
+    if (error && error.message && error.message.includes('note')) {
+      delete updatePayload.note
+      if (baseProductName) {
+        updatePayload.product_name = note ? `${baseProductName} (${note})` : baseProductName
+      }
+      const { error: retryErr } = await supabase
+        .from('order_items')
+        .update(updatePayload)
+        .eq('id', itemId)
+      if (retryErr) throw new Error(retryErr.message)
+    } else if (error) {
+      throw new Error(error.message)
+    }
+
+    await this.recalculate(orderId)
   },
 
   async updateItemQuantity(itemId: string, orderId: string, quantity: number): Promise<void> {

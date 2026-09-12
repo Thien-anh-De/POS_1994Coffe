@@ -11,6 +11,7 @@ export interface PrintableOrderItem {
   quantity: number
   unit_price: number
   subtotal: number
+  note?: string
 }
 
 export interface PrintableOrder {
@@ -58,10 +59,13 @@ export function generateReceiptHtml(
     .map(
       (item) => `
       <tr>
-        <td style="padding: 3px 0; font-weight: 500; word-break: break-word;">${escapeHtml(item.product_name)}</td>
-        <td style="padding: 3px 0; text-align: center; white-space: nowrap;">${item.quantity}</td>
-        <td style="padding: 3px 0; text-align: right; white-space: nowrap;">${formatCurrency(item.unit_price)}</td>
-        <td style="padding: 3px 0; text-align: right; font-weight: 600; white-space: nowrap;">${formatCurrency(item.subtotal)}</td>
+        <td style="padding: 3px 0; font-weight: 500; word-break: break-word;">
+          <div>${escapeHtml(item.product_name)}</div>
+          ${item.note ? `<div style="font-size: 10px; color: #333; font-style: italic; padding-left: 4px; margin-top: 1px;">&bull; ${escapeHtml(item.note)}</div>` : ''}
+        </td>
+        <td style="padding: 3px 0; text-align: center; white-space: nowrap; vertical-align: top;">${item.quantity}</td>
+        <td style="padding: 3px 0; text-align: right; white-space: nowrap; vertical-align: top;">${formatCurrency(item.unit_price)}</td>
+        <td style="padding: 3px 0; text-align: right; font-weight: 600; white-space: nowrap; vertical-align: top;">${formatCurrency(item.subtotal)}</td>
       </tr>
     `
     )

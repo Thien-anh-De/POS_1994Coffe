@@ -591,3 +591,104 @@ body {
     transform: scale(1) translateY(0);
   }
 }
+
+/* ── Mobile Responsive Layout ──────────────────────────────── */
+.mobile-header {
+  display: none;
+}
+
+.mobile-close-btn {
+  display: none;
+}
+
+.sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column !important;
+    min-height: 100vh !important;
+  }
+
+  .mobile-header {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: #ffffff;
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    z-index: 998;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  .mobile-close-btn {
+    display: inline-flex !important;
+  }
+
+  .sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: -290px !important;
+    width: 280px !important;
+    height: 100vh !important;
+    z-index: 1000 !important;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
+    transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+
+  .sidebar.mobile-open {
+    left: 0 !important;
+  }
+
+  .sidebar-backdrop {
+    display: block !important;
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(15, 23, 42, 0.45) !important;
+    backdrop-filter: blur(3px);
+    z-index: 999 !important;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .main-content {
+    padding: 1rem 0.875rem !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow-y: visible !important;
+  }
+
+  .page-header {
+    margin-bottom: 1rem !important;
+  }
+
+  .page-title {
+    font-size: 1.25rem !important;
+  }
+
+  .page-subtitle {
+    font-size: 0.775rem !important;
+  }
+
+  .stat-card {
+    padding: 1rem !important;
+  }
+
+  .stat-value {
+    font-size: 1.35rem !important;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 0.5rem 0.625rem !important;
+    font-size: 0.8rem !important;
+  }
+
+  .modal-content {
+    padding: 1.25rem !important;
+    max-width: 95vw !important;
+    border-radius: var(--radius-xl) !important;
+  }
+}

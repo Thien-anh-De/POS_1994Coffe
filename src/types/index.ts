@@ -81,6 +81,7 @@ export interface OrderItem {
   unit_price: number
   quantity: number
   subtotal: number
+  note?: string
 }
 
 // ── Payments ──────────────────────────────────────────────────
@@ -237,5 +238,54 @@ export interface CartItem {
   unit_price: number
   quantity: number
   subtotal: number
+  note?: string
+}
+
+export interface ToppingOption {
+  id: string
+  name: string
+  price: number
+}
+
+// ── Advanced Sales & Profitability Types ──────────────────────
+export type DayTypeFilter = 'ALL' | 'WEEKDAY' | 'WEEKEND'
+
+export interface ProductPerformance {
+  product_id?: string
+  product_name: string
+  category_name?: string
+  unit_price: number
+  quantity: number
+  revenue: number
+  share_percent: number
+}
+
+export interface DayOfWeekRevenue {
+  day_index: number
+  day_name: string
+  revenue: number
+  order_count: number
+  avg_revenue: number
+  share_percent: number
+}
+
+export interface DailyTimelineRevenue {
+  date_str: string
+  label: string
+  revenue: number
+  order_count: number
+  is_weekend: boolean
+}
+
+export interface WeekendComparison {
+  weekday_revenue: number
+  weekday_orders: number
+  weekday_days_count: number
+  weekday_avg_daily: number
+  weekend_revenue: number
+  weekend_orders: number
+  weekend_days_count: number
+  weekend_avg_daily: number
+  weekend_ratio: number
 }
 

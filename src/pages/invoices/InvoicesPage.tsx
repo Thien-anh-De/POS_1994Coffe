@@ -72,6 +72,7 @@ export default function InvoicesPage() {
         quantity: i.quantity,
         unit_price: i.unit_price,
         subtotal: i.subtotal,
+        note: i.note,
       })),
       subtotal: order.subtotal,
       discount: order.discount,
@@ -226,7 +227,14 @@ export default function InvoicesPage() {
               <tbody>
                 {(selectedOrder.items ?? []).map((item) => (
                   <tr key={item.id}>
-                    <td style={{ fontWeight: 500 }}>{item.product_name}</td>
+                    <td style={{ fontWeight: 500 }}>
+                      <div>{item.product_name}</div>
+                      {item.note && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--color-coffee-300)', marginTop: '0.125rem' }}>
+                          {item.note}
+                        </div>
+                      )}
+                    </td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(item.unit_price)}</td>
                     <td style={{ textAlign: 'center' }}>{item.quantity}</td>
                     <td style={{ textAlign: 'right', fontWeight: 500 }}>{formatCurrency(item.subtotal)}</td>

@@ -1,4 +1,5 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import {
   Coffee,
@@ -12,6 +13,8 @@ import {
   LogOut,
   ChevronRight,
   Printer,
+  Menu,
+  X,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { UserRole } from '@/types'
@@ -30,6 +33,8 @@ const navItems: { to: string; icon: typeof ShoppingCart; label: string; roles: U
 export function MainLayout({ children }: { children: ReactNode }) {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const handleSignOut = async () => {
     await signOut()
@@ -42,12 +47,60 @@ export function MainLayout({ children }: { children: ReactNode }) {
     CASHIER: 'Thu ngân',
   }
 
+  // Find current active page title for mobile header
+  const currentNav = navItems.find((item) => item.to === location.pathname)
+  const pageTitle = currentNav?.label || '1994 Coffee'
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="app-container" style={{ display: 'flex', minHeight: '100vh' }}>
+      {/* Mobile Header (Shown on screens <= 768px) */}
+      <header className="mobile-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 'var(--radius-md)',
+              background: 'linear-gradient(135deg, var(--color-coffee-500), var(--color-coffee-700))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Coffee size={18} color="white" />
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-coffee-800)', lineHeight: 1.2 }}>
+              1994 Coffee
+            </div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+              {pageTitle}
+            </div>
+          </div>
+        </div>
+
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle menu"
+          style={{ padding: '0.5rem' }}
+        >
+          {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
+      </header>
+
+      {/* Mobile Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <nav className="sidebar">
+      <nav className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         {/* Brand */}
-        <div style={{ padding: '0.5rem 1rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 1rem', marginBottom: '1.25rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div
               style={{
@@ -71,6 +124,13 @@ export function MainLayout({ children }: { children: ReactNode }) {
               </div>
             </div>
           </div>
+          <button
+            className="btn btn-ghost btn-sm mobile-close-btn"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{ padding: '0.25rem' }}
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {/* Nav Links */}
@@ -81,6 +141,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
               <NavLink
                 key={item.to}
                 to={item.to}
+                onClick={() => setMobileMenuOpen(false)}
                 className={({ isActive }) =>
                   `sidebar-link ${isActive ? 'active' : ''}`
                 }
@@ -117,6 +178,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
 
       {/* Main Content */}
       <main
+        className="main-content"
         style={{
           flex: 1,
           padding: '1.5rem 2rem',
