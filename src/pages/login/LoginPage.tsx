@@ -17,18 +17,34 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
 
-    const { error: err } = await signIn(email, password)
-    if (err) {
-      if (err.toLowerCase().includes('invalid login credentials')) {
-        setError('Email hoặc mật khẩu không chính xác')
-      } else {
-        setError(`Lỗi đăng nhập: ${err}`)
+    try {
+      const { error: err } = await signIn(email.trim(), password)
+      if (err) {
+        const lowerErr = err.toLowerCase()
+        if (lowerErr.includes('invalid login credentials')) {
+          setError('Email hoặc mật khẩu không chính xác')
+        } else if (
+          lowerErr.includes('failed to fetch') ||
+          lowerErr.includes('network') ||
+          lowerErr.includes('timeout')
+        ) {
+          setError(
+            'Không thể kết nối đến máy chủ Supabase (Failed to fetch). Vui lòng kiểm tra lại kết nối mạng hoặc thử lại sau.'
+          )
+        } else if (lowerErr.includes('email not confirmed')) {
+          setError('Tài khoản chưa được xác thực email trên Supabase')
+        } else {
+          setError(`Lỗi đăng nhập: ${err}`)
+        }
+        return
       }
-      setLoading(false)
-      return
-    }
 
-    navigate('/pos')
+      navigate('/pos')
+    } catch (unexpectedError: any) {
+      setError(`Đã xảy ra lỗi: ${unexpectedError?.message || 'Không xác định'}`)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

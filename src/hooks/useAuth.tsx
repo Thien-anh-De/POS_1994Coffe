@@ -83,11 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      return { error: error.message }
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        return { error: error.message }
+      }
+      return { error: null }
+    } catch (err: any) {
+      return { error: err?.message || 'Không thể kết nối đến máy chủ xác thực' }
     }
-    return { error: null }
   }
 
   const signOut = async () => {
