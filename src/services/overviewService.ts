@@ -96,7 +96,7 @@ export const overviewService = {
     // 1. Fetch current paid orders
     const { data: currentOrders, error: curErr } = await supabase
       .from('orders')
-      .select('id, invoice_number, subtotal, discount, total, paid_at, cashier_id, table:tables(name), cashier:profiles!cashier_id(name)')
+      .select('id, invoice_number, subtotal, discount, total, paid_at, cashier_id, table:tables(name), cashier:profiles!cashier_id(name), payment:payments(method, amount)')
       .eq('status', 'PAID')
       .gte('paid_at', range.currentFrom)
       .lte('paid_at', range.currentTo)
@@ -146,15 +146,7 @@ export const overviewService = {
       if (pItems) prevItems = pItems
     }
 
-    // 6. Fetch payments for current orders
-    let paymentsData: { method: string; amount: number }[] = []
-    if (curOrderIds.length > 0) {
-      const { data: pays } = await supabase
-        .from('payments')
-        .select('method, amount')
-        .in('order_id', curOrderIds)
-      if (pays) paymentsData = pays
-    }
+    // (Removed separate payments query to prevent double counting if multiple payments exist per order)
 
     // 7. Fetch categories map
     const { data: productsWithCat } = await supabase
@@ -286,19 +278,17 @@ export const overviewService = {
     let bank_amount = 0
     let bank_orders = 0
 
-    if (paymentsData.length > 0) {
-      for (const p of paymentsData) {
-        if (p.method === 'CASH') {
-          cash_amount += p.amount
-          cash_orders += 1
-        } else {
-          bank_amount += p.amount
-          bank_orders += 1
-        }
+    for (const ord of paidList) {
+      const tot = ord.total || 0;
+      const method = (ord.payment as any)?.[0]?.method || (ord.payment as any)?.method || 'CASH'
+      
+      if (method === 'CASH') {
+        cash_amount += tot
+        cash_orders += 1
+      } else {
+        bank_amount += tot
+        bank_orders += 1
       }
-    } else {
-      cash_amount = net_revenue
-      cash_orders = total_orders
     }
 
     const payments: PaymentBreakdown = {

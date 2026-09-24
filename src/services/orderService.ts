@@ -244,6 +244,17 @@ export const orderService = {
   async pay(orderId: string, method: PaymentMethod, amount: number, cashierId: string): Promise<void> {
     const now = new Date().toISOString()
 
+    // Check if order is already paid to prevent double payment
+    const { data: existingOrder } = await supabase
+      .from('orders')
+      .select('status')
+      .eq('id', orderId)
+      .single()
+      
+    if (existingOrder?.status === 'PAID') {
+       throw new Error('Đơn hàng này đã được thanh toán!')
+    }
+
     // Create payment record
     const { error: payErr } = await supabase.from('payments').insert({
       order_id: orderId,
